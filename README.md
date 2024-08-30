@@ -4,6 +4,7 @@
 
 This repository contains Ansible playbooks designed to QUICKLY provision virtual machines via VMware (vSphere) and prepare them for Kubernetes Kubeadm deployment. The playbook will take a vSphere vCenter VM template to a kubernetes ready VM.  From there, all a user needs to do is run `kubeadm init` to create a kubernetes cluster (with Containerd runtime). The playbooks support various Linux distributions, including Ubuntu 24.04 and RHEL 9.4.  If you don't see your preferred linux distro playbook, lets us know!
 
+The playbooks provide an option to configure the new VMs for Calico CNI or Longhorn Persistent Volumes using `calico_cni: true/false` and `use_longhorn_pv: true/false` located in the `vars:` section of each playbooks.
 
 ## Prerequisites
 
@@ -22,6 +23,12 @@ This repository contains Ansible playbooks designed to QUICKLY provision virtual
 + vSphere vCenter VM template dependencies vary between Linux distros.  Please refer to the `README` file located in specific Linux distro playbook folder for more information on how to configure a "Linux distro specific" vSphere VM template.
 
 ## VM Template Dependencies and Configuration
+
+Specific configurations and dependencies are required on the VMware VM template.  Since Linux distros vary, VM configuration instructions are located in the `README` files of the specific distro folders.   Generally, the vm template configurations:
+    + Configure ssh server for `root` and/or `user` access
+    + Allow password authentication ssh access.  Since this playbook inserts public keys after the VM is created, username and password authentication is required.  This may be disabled after ssh keys are inserted. 
+    + Define a password to access VMs.  This is accomplished by making changes to /etc/cloud/cloud.cfg (cloud-init).  Cloud-init may need to be installed depending on Linux distro chosen.  
+    + 
 
 ## Playbooks
 
