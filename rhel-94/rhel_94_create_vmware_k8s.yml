@@ -37,7 +37,7 @@
         datacenter: "{{ datacenter_name }}"
         cluster: "{{ cluster_name }}"
         folder: "{{ folder_name }}"
-        template: "{{ template_name_rhel3 }}"
+        template: "{{ template_name_rhel1 }}"
         name: "{{ item.name }}"
         state: poweredon
         wait_for_ip_address: yes
@@ -225,6 +225,14 @@
 
     - name: Configure VMs for k8s and install k8s packages
       block:
+        - name: Install cloud-utils-growpart package
+          become: yes
+          yum:
+            name: cloud-utils-growpart
+            state: present
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
         - name: Run dist-upgrade
           become: yes
           yum:
