@@ -1,3 +1,5 @@
+![kubernetes-ansible-vmare](https://github.com/user-attachments/assets/557d72a8-3177-4d3f-8487-3fbd5f1fcf62)
+
 # Ansible Playbooks for VMware vSphere vCenter VM Provisioning and Kubernetes Setup
 ***  These playbooks prep VMware VMs to create Kubernetes via Kubeadm and Containerd  ***
 ## Overview
