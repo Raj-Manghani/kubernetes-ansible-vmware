@@ -1,10 +1,10 @@
 ![kubernetes-ansible-vmare](https://github.com/user-attachments/assets/557d72a8-3177-4d3f-8487-3fbd5f1fcf62)
 
 # Ansible Playbooks for VMware vSphere vCenter VM Provisioning and Kubernetes Setup
-*** These playbooks are designed to streamline the creation of Kubernetes clusters on VMware VMs using Kubeadm and Containerd. ***
+*** These playbooks are designed to streamline the creation of Kubernetes clusters on VMware VMs using Kubeadm and ContainerD. ***
 ## Overview
 
-“This repository features Ansible playbooks that swiftly provision virtual machines via VMware (vSphere) and prepare them for Kubernetes cluster deployment using Kubeadm. The playbooks transform a vCenter VM template into a Kubernetes-ready VM. From there, users simply need to run `kubeadm init` to create a Kubernetes cluster with the Containerd runtime. The playbooks support various Linux distributions, including Ubuntu 24.04 and RHEL 9.4. If your preferred Linux distribution isn’t listed, let us know!”
+“This repository features Ansible playbooks that swiftly provision virtual machines via VMware (vSphere) and prepare them for Kubernetes cluster deployment using Kubeadm. The playbooks transform a vCenter VM template into a Kubernetes-ready VM. From there, users simply need to run `kubeadm init` to create a Kubernetes cluster with the ContainerD runtime. The playbooks support various Linux distributions, including Ubuntu 24.04 and RHEL 9.4. If your preferred Linux distribution isn’t listed, let us know!”
 
 Additionally, the playbooks provide an option to configure the new VMs for Calico CNI and Longhorn Persistent Volumes using `calico_cni: true/false` and `use_longhorn_pv: true/false` located in the `vars:` section of each playbooks.
 
@@ -54,7 +54,7 @@ This playbook provisions VMs from a vSphere template and configures them for Kub
 - Configure network settings using NetPlan
 - Manage SSH keys for root and specified users (With option to omit or apply seperate key for `root` user)
 - Set SELinux to permissive mode and disable swap
-- Install and configure containerd
+- Install and configure containerD
 - Install Kubernetes packages (kubeadm, kubectl, kubelet)
 - Install and configure Calico CNI (optional: Set boolean `true/false` directly in playbook)
 - Configure VMs for Longhorn persistent volumes (optional: Set boolean `true/false` directly in playbook)
@@ -72,11 +72,11 @@ This playbook provisions VMs from a vSphere template and configures them for Kub
 - Configure network settings using NetworkManager
 - Manage SSH keys for root and specified users (With option to omit or apply seperate key for `root` user)
 - Set SELinux to permissive mode and disable swap
-- Install and configure containerd
+- Install and configure containerD
 - Install Kubernetes packages (kubeadm, kubectl, kubelet)
 - Install and configure Calico CNI (optional: Set boolean `true/false` directly in playbook)
 - Configure VMs for Longhorn persistent volumes (optional: Set boolean `true/false` directly in playbook)
-- Versioning: Select desired version of Kubernetes and Calico CNI
+- Versioning: Select desired version of Kubernetes with cooresponding pause image version, and Calico CNI version
 
 ### 3. Variables
 
@@ -115,22 +115,46 @@ template_name_ubuntu-2404-2: "<''>"
 template_name_ubuntu-2404-3: "<''>"
 ```
 
-vm_list: List of VMs to be provisioned
-dns_server_list: List of DNS servers
-search_domain_name: DNS search domain
-user: User for SSH access
-vm_password: Password for VMs
-public_key_path: Path to the public SSH key
-root_key_path: Path to the root SSH key
-kubernetes_version: Version of Kubernetes to install
-calicoctl_version: Version of Calicoctl to install
-use_longhorn_pv: Flag to enable Longhorn persistent volumes
+#### Playbook Variables (vars:)
+```bash
+vars:
+    ansible_ssh_pass: "{{ vm_password }}"
+    ansible_python_interpreter: /usr/bin/python3
+    vm_list:
+      - { name: kubernetes1, item_ip: 10.11.0.32 }
+      - { name: kubernetes2, item_ip: 10.11.0.33 }
+      - { name: kubernetes3, item_ip: 10.11.0.34 }
+    dns_server_list:
+      - 192.168.50.246
+      - 192.168.50.1
+      - 10.11.0.1
+    search_domain_name: "<mydomain.com>"
+    user: "<user or root>"
+    vm_password: "<password entered vSphere --> Customize Template>"
+    default_gateway: "<gateway IP address>"
+    public_key_path: "<path to ssh public key (i.e./root/.ssh/u-pub.pub)>"
+    root_key_path: "<path to ssh public key (i.e./root/.ssh/u-pub.pub)>"
+    add_root_ssh_key: true/false 
+    users_to_add_key: [<non-root user account (i.e. myLinuxUser, etc)>] #[myuser, otherUser]
+    kubernetes_version: "v1.31"    # Desired version in format: "v1.31"
+    pause_image_version: "3.10"    # Pause Image Version should coorelate to with Kubernetes Version.  Format: "3.9"
+    calico_cni: true               # Installs Calico CNI dependencies if true.
+    calicoctl_version: "v3.28.1"   # Used to set Calico CNI version.  Format: "v3.28.1"
+    use_longhorn_pv: true          # Installs Longhorn dependencies if true.
+```
+### 4. Kubernetes Version, Pause Image Version, Calico CNI Version
+Playbooks allow you to declare installation versions of kubernetes, pause images and Calico CNI (including calicoctl); directly inside the playbook (e.g. vars: kubernetes_version: "v1.31" for kubeadm, kubectl and kubelet).  By default, all versions are compatible out of the box.  Please check vendor specific version requirements if you plan to change these values.
+
+Playbooks will install the latest stable version of ContainerD for Kubernetes. 
+
+### 5. Calico CNI and Longhorn Dependencies
+If you plan to use Calico or Longhorn, the playbooks will install required dependencies when `vars: use_calico_cni: true` and `vars: use_longhorn_pv: true` 
 
 ### 4. Contributing
 Contributions are welcome! Please fork the repository and submit a pull request with your changes.
 
 ### 5. License
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project has no license.
 
 ### 6. Contact
-For any questions or issues, please open an issue in the repository or contact the maintainer.
+For any questions or issues, please open an issue in the repository.
