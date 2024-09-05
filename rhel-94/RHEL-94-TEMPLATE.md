@@ -1,3 +1,5 @@
+![ansible-vmware-kubernetes-playbooks (1)](https://github.com/user-attachments/assets/464fab6e-78fd-431c-bc56-27f3e7a0e03d)
+
 # RHEL 9.4 Ansible VMware Kubernetes VM Provisioner
 
 ## Introduction
