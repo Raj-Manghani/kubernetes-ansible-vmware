@@ -105,7 +105,7 @@ sudo vi /etc/cloud/cloud.cfg
 Disable password change at first log in #Creates custom configuration for Cloud-init
   -> echo -e "#cloud-config\nchpasswd:\n  expire: False" | sudo tee /etc/cloud/cloud.cfg.d/99-custom-config.cfg
 ```
-### Step 4: Configure SSH Server
+### Step 3: Configure SSH Server
 ```bash
 sudo vi /etc/ssh/sshd_config
   -> Uncomment & change `#PermitRootLogin prohibit-password` ---> `PermitRootLogin yes`
@@ -114,18 +114,18 @@ sudo vi /etc/ssh/sshd_config
 
   -> Uncomment `#PasswordAuthentication yes` ---> `PasswordAuthentication yes`
 ```
-### Step 5: Configure NOPASSWD Sudo User
+### Step 4: Configure NOPASSWD Sudo User
 ```bash
 sudo visudo 
   -> Uncomment line `%wheel  ALL=(ALL) NOPASSWD:ALL`
 
   -> save & exit
 ```
-### Step 6: Stop & Disable Firewalld
+### Step 5: Stop & Disable Firewalld
 ```bash
 sudo systemctl stop firewalld && sudo systemctl disable firewalld
 ```
-### Step 7: Reboot VM for good measure
+### Step 6: Reboot VM for good measure
 ```bash
 sudo reboot
 ```
