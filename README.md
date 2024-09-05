@@ -1,7 +1,8 @@
 ![kubernetes-ansible-vmare](https://github.com/user-attachments/assets/557d72a8-3177-4d3f-8487-3fbd5f1fcf62)
-
+<sub>*The repository's contents are not officially endorsed by VMware, Ansible, Kubernetes, Red Hat or Canonical*</sub>
 # Ansible Playbooks for VMware vSphere vCenter VM Provisioning and Kubernetes Setup
-*** These playbooks are designed to streamline the creation of Kubernetes clusters on VMware (vSphere) VMs using Kubeadm and ContainerD. ***
+These playbooks are designed to streamline the creation of Kubernetes clusters on VMware (vSphere) VMs using Kubeadm and ContainerD.
+
 ## Overview
 
 This repository features Ansible playbooks that swiftly provision virtual machines via VMware (vSphere) and prepare them for Kubernetes cluster deployment using Kubeadm. The playbooks transform a vCenter VM template into a Kubernetes-ready VM. From there, users simply need to run `kubeadm init` to create a Kubernetes cluster that uses ContainerD runtime. The playbooks support various Linux distributions, including Ubuntu 24.04 and RHEL 9.4. If your preferred Linux distribution isn’t listed, let us know! Additionally, the playbooks provide an option to configure the new VMs for Calico CNI and Longhorn persistent volumes. 
@@ -38,10 +39,12 @@ Some of these configurations are not suitable for productions environments and s
 
 + Set SELinux to `permissive` mode. (Kubernetes Required)
 
-*PLEASE NOTE: Since Linux distros vary, VM template configuration instructions are located in the `<LINUX DISTRO>-<distro version>-TEMPLATE.md` file, in the specific distro folders.*
+*PLEASE NOTE: Since Linux distros vary, VM template configuration instructions are located in a readme file in the specific distro folders (e.g.`<LINUX DISTRO>-<distro version>-TEMPLATE.md`).*
 
 ## Current Linux-based Playbooks
 
+![ansible-vmware-kubernetes-playbooks](https://github.com/user-attachments/assets/3d78de53-0788-448d-aa0b-45d34ac02fa2)
+<sub>*Playbooks are user generated and not endorsed by Canonical*</sub>
 ### 1. Ubuntu 24.04 Playbook
 
 #### Description
@@ -60,6 +63,8 @@ This playbook provisions VMs from a vSphere template and configures them for Kub
 - Configure VMs for Longhorn persistent volumes (optional: Set boolean `true/false` directly in playbook)
 - Versioning: Select desired version of Kubernetes and Calico CNI (Set directly in playbook)
 
+![ansible-vmware-kubernetes-playbooks (1)](https://github.com/user-attachments/assets/a23b76eb-9ca4-4974-869f-787fdfe02e97)
+<sub>*Playbooks are user generated and not endorsed by Red Hat.*</sub>
 ### 2. RHEL 9.4 Playbook
 
 #### Description
@@ -78,11 +83,11 @@ This playbook provisions VMs from a vSphere template and configures them for Kub
 - Configure VMs for Longhorn persistent volumes (optional: Set boolean `true/false` directly in playbook)
 - Versioning: Select desired version of Kubernetes with cooresponding pause image version, and Calico CNI version (set directly in playbook)
 
-### 3. Variables
+## Playbook Variables
 
 The playbooks' variables are defined in 2 places; in `vars/main.yml` and, the `vars:` section of the playbook file.  VMware vSphere specific variables are located in `main.yml`.  VM specific and all other variables are located in the `vars:' section inside the playbook.
 
-#### Playbook Variables (vars:)
+### Playbook Variables (`vars:`)
 
 The variables below are located in the `vars` section in every playbook.
 ```bash
@@ -119,7 +124,7 @@ The `vm_list` variable determines the desired quantity of VMs, their hostnames, 
       - { name: kubernetes3, item_ip: 10.11.0.34 }
       - { name: <add-VM-hostname>, item_ip: <desired static IP>}
 ```
-#### vSphere Variables 
+### vSphere Variables (`main.yml`) 
 
 vSphere variables are located in `main.yml`.  Playbooks will look for the vars file as defined in playbook `vars_files`.  In the example below, the main.yml should be places in `root/playbooks/vars` folder:
 ```bash
@@ -144,19 +149,19 @@ template_name_ubuntu-2404-3: "<''>"
 ```
 
 
-### 4. Kubernetes Version, Pause Image Version, Calico CNI Version
+## Kubernetes Version, Pause Image Version, Calico CNI Version
 Playbooks allow you to declare versions of kubernetes, pause images and Calicoctl (used with Calico CNI) directly inside the playbook (e.g. `vars: kubernetes_version: "v1.31"` to install version 1.31 kubeadm, kubectl and kubelet).  The playbook default versions are compatible with each other.  Please check vendor specific version requirements if you plan to change these values.
 
 Note: Playbooks will install the latest stable version of ContainerD for Kubernetes. 
 
-### 5. Calico CNI and Longhorn Dependencies
+## Calico CNI and Longhorn Dependencies
 If you plan to use Calico or Longhorn, the playbooks install required dependencies when `vars: use_calico_cni: true` and `vars: use_longhorn_pv: true` 
 
-### 4. Contributing
+## Contributing
 Contributions are welcome! Please fork the repository and submit a pull request with your changes.
 
-### 5. License
+## License
 You are free to use this code however you please.  Credit to this repository is always nice.
 
-### 6. Contact
+## Contact
 For any questions or issues, please open an issue in the repository.
