@@ -1,3 +1,5 @@
+![ansible-vmware-kubernetes-playbooks](https://github.com/user-attachments/assets/75fe4a55-e816-40fc-a9bc-408d99a2b80f)
+
 # Ubuntu 24.04 Ansible VMware Kubernetes VM Provisioner
 
 ## Introduction
