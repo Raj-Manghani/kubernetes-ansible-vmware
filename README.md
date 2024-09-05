@@ -23,6 +23,8 @@ This repository features Ansible playbooks that swiftly provision virtual machin
 
 + vSphere vCenter Linux VM template.  (Refer to the `README` file located in specific Linux distro playbook folder for more information on how to configure vSphere VM template for a particular Linux distribution.)
 
++ These playbooks are designed to run without declaring a `ansible.cfg` file.  If the playbook fails for any reason, remove `ansible.cfg` during runtime.
+
 ## VM Template Dependencies and Configuration
 
 Specific configurations are required for VMware VM templates to create Kubernetes cluster nodes.  The Ansible playbooks in this repository have their own VM template dependencies. These template dependencies allow Ansible to make the necessary configurations to the VMs that result in a Kubernetes-ready VM.  
