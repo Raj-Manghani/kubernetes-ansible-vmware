@@ -3,29 +3,34 @@
 # -> Enter values in `vars:` section below before running this playbook.
 # -> Enter vSphere values in `main.yaml`.  
 # -> Ensure path to `main.yml` is set below in `vars_files:`
+# -> Warning: All items in {{ curly brackets }} are directly connected to variables.  Changes to these items could break the playbook. 
+# -> Add inputs where you see angled brackets by replacing everything including the brackets. (i.e. '<IP address>' = '10.11.0.11')
+# -> Make sure Ansible host meets all requirements to run this playbook.  It is recommended to use a python virtual environment  See repository README.md for more information.
+
 - name: Create VMs from template with guest customization
   hosts: localhost
   gather_facts: no
   vars_files:
-    - /root/playbooks/vars/main.yml
+    - <example /root/playbooks/vars/main.yml>    # Enter path to `main.yml` where vSphere Variables are located
   vars:
     ansible_ssh_pass: "{{ vm_password }}"
-    ansible_python_interpreter: /usr/bin/python3
+    ansible_python_interpreter: /usr/bin/python3 # Enter path of python3 interpreter
     vm_list:
-      - { name: testnewpb1, item_ip: 10.11.0.32 } # Insert/remove VMs as desired
-      - { name: testnewpb2, item_ip: 10.11.0.33 }
-      - { name: testnewpb3, item_ip: 10.11.0.34 }
+      - { name: <desired-hostname>, item_ip: <desired_ip_address> } # Insert/remove VMs as desired
+      - { name: example1, item_ip: 10.11.0.33 }
+      - { name: example2, item_ip: 10.11.0.34 }
     dns_server_list:
-      - 192.168.50.246
-      - 192.168.50.1
       - 10.11.0.1
-    search_domain_name: "ids.wiredcolony.com"    # Enter Search Domain or ""
-    user: "root"                                 # Enter User or root
-    vm_password: "Mnomn1"                        # Enter password created in vSphere Customize Template
-    default_gateway: "10.11.0.1"
-    users_to_add_key: [rhel]                     # Add users accounts that receive ssh public key (comma seperated)
-    public_key_path: "/root/.ssh/u-pub.pub"      # Enter public key (Required)
-    root_key_path: ""                            # Enter seperate key for root.  Otherwise root gets public_key_path when "add_root_ssh_key: true"
+      - 8.8.8.8
+      - 1.1.1.1
+    default_gateway: "<Enter gateway for VMs>"
+    netmask: "<enter netmask for VMs>"
+    search_domain_name: "<mydomain.com>"         # Enter Search Domain or ""
+    user: "<root user recommended>"              # Enter User or root
+    vm_password: "<Password_defined_in_VM>"      # Enter password created in vSphere Customize Template
+    users_to_add_key: [<users_ssh_access]        # Add users accounts that receive ssh public key (comma seperated)
+    public_key_path: "</path/key or key value>"  # Enter public key (Required)
+    root_key_path: </path/key or key value >     # Enter seperate key for root.  Otherwise root gets public_key_path when "add_root_ssh_key: true"
     add_root_ssh_key: true                       # Boolean value (true/false).  Root user gets ssh key when 'true'
     kubernetes_version: "v1.31"                  # Desired Kubernetes version in format: "v1.31"                  
     pause_image_version: "3.10"                  # Pause Image Version should coorelate to with Kubernetes
@@ -53,8 +58,8 @@
           start_connected: yes
           type: static
           ip: '{{ item.item_ip }}'
-          netmask: 255.255.0.0
-          gateway: 10.11.0.1
+          netmask: '{{ netmask }}' 
+          gateway: '{{ default_gateway }}'
       loop: "{{ vm_list }}"
       async: 450
       poll: 0
