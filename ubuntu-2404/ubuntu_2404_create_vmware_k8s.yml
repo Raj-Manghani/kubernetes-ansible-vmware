@@ -1,32 +1,37 @@
+# **Important** 
+# -> Ensure value in `tasks.vmware_guest.template` coorelate to the vSphere template defined in `main.yml`
+# -> Enter values in `vars:` section below before running this playbook.
+# -> Enter vSphere values in `main.yaml`.  
+# -> Ensure path to `main.yml` is set below in `vars_files:`
 - name: Create VMs from template with guest customization
   hosts: localhost
   gather_facts: no
   vars_files:
     - /root/playbooks/vars/main.yml
   vars:
+    ansible_ssh_pass: "{{ vm_password }}"
     ansible_python_interpreter: /usr/bin/python3
     vm_list:
-      - { name: testnewpb1, item_ip: 10.11.0.32 }
-      - { name: testnewpb2, item_ip: 10.11.0.33 }
-      - { name: testnewpb3, item_ip: 10.11.0.34 }
+      - { name: kubernetes1, item_ip: 10.11.0.35 } # Insert/remove VMs as desired
+      - { name: kubernetes2, item_ip: 10.11.0.36 }
+      - { name: kubernetes3, item_ip: 10.11.0.37 }
     dns_server_list:
       - 192.168.50.246
       - 192.168.50.1
       - 10.11.0.1
-    search_domain_name: "ids.wiredcolony.com"
-    user: "root"
-    vm_password: "Mnomn1"
-    ansible_ssh_pass: "{{ vm_password }}"
+    search_domain_name: "ids.wiredcolony.com"    # Enter Search Domain or ""
+    user: "root"                                 # Enter User or root
+    vm_password: "Mnomn1"                        # Enter password created in vSphere Customize Template
     default_gateway: "10.11.0.1"
-    public_key_path: "/root/.ssh/u-pub.pub"
-    root_key_path: "/root/.ssh/public_key.pub"
-    add_root_ssh_key: true
-    users_to_add_key: [ubuntu]
-    kubernetes_version: "v1.31"
-    pause_image_version: "3.10"
-    calico_cni: true
-    calicoctl_version: "v3.28.1"
-    use_longhorn_pv: true
+    users_to_add_key: [ubuntu]                   # Add users accounts that receive ssh public key (comma seperated)
+    public_key_path: "/root/.ssh/u-pub.pub"      # Enter public key (Required)
+    root_key_path: "/root/.ssh/public_key.pub"   # Enter seperate key for root.  Otherwise root gets public_key_path when "add_root_ssh_key: true"
+    add_root_ssh_key: true                       # Boolean value (true/false).  Root user gets ssh key when 'true'
+    kubernetes_version: "v1.31"                  # Desired Kubernetes version in format: "v1.31"
+    pause_image_version: "3.10"                  # Pause Image Version should coorelate to with Kubernetes
+    use_calico_cni: true                         # Installs Calico CNI dependencies if true.
+    calicoctl_version: "v3.28.1"                 # Used to set Calico CNI version.  Format: "v3.28.1"
+    use_longhorn_pv: true                        # Installs Longhorn dependencies if true.
   tasks:
     - name: Clone VMs from template
       vmware_guest:
@@ -37,7 +42,7 @@
         datacenter: "{{ datacenter_name }}"
         cluster: "{{ cluster_name }}"
         folder: "{{ folder_name }}"
-        template: "{{ template_name_ubuntu1 }}"
+        template: "{{ template_name_ubuntu_2404_1 }}"  # Edit template number to desired version in vars/main.yml (e.g. _ubuntu-2404-1, _ubuntu-2404-2, etc).   
         name: "{{ item.name }}"
         state: poweredon
         wait_for_ip_address: yes
@@ -483,7 +488,7 @@
             url: https://github.com/projectcalico/calico/releases/download/{{ calicoctl_version }}/calicoctl-linux-amd64
             dest: /usr/local/bin/calicoctl
             mode: '0755'
-          when: calico_cni
+          when: use_calico_cni
           loop: "{{ vm_list }}"
           delegate_to: "{{ item.item_ip }}"
         
@@ -493,7 +498,7 @@
           file:
             path: /usr/local/bin/calicoctl
             mode: '0755'
-          when: calico_cni
+          when: use_calico_cni
           loop: "{{ vm_list }}"
           async: 450
           poll: 0
@@ -547,7 +552,7 @@
             line: iscsi_tcp
           loop: "{{ vm_list }}"
           delegate_to: "{{ item.item_ip }}"
-      tags: install_longhorn
+      tags: install_longhorn_dependencies
 
 
     - name: Reboot VMs
