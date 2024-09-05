@@ -13,7 +13,7 @@ This repository features Ansible playbooks that swiftly provision virtual machin
 
 + vSphere credentials with appropriate priviledges
   
-+ Ansible host version 2.17 or later. (Later versions may not be backward compatible.)
++ Ansible host version 2.17 or later (Later versions may not be backward compatible).  See requirements.txt for additional packages and versions.  It is recommended to run these playbooks and additional packages in `python3 venv`.
   
 + `main.yml` file declaring vSphere variables.  Refer to the example 'main.yml' for the required variables.
   
@@ -40,6 +40,10 @@ Some of these configurations are not suitable for productions environments and s
 + Set SELinux to `permissive` mode. (Kubernetes Required)
 
 *PLEASE NOTE: Since Linux distros vary, VM template configuration instructions are located in a readme file in the specific distro folders (e.g.`<LINUX DISTRO>-<distro version>-TEMPLATE.md`).*
+
+## Ansible Host Requirements
+
+These playbooks were tested with Ansible Host version 2.17.  To ensure all modules work as intended, specific packages are required before running this playbook.  Refer to `requirements.txt` for more information on the packages required.  It is highly recommended you use a python virtual environment when running playbooks.  If you are unsure how to set this up, there are many online video walkthrus/tutorials.  Additionally, `python3` path needs to be set accordingly in `vars:` section as interpreter in your playbook for it to work as intended (e.g vars.ansible_python_interpreter: /usr/bin/python3).
 
 ## Current Linux-based Playbooks
 
