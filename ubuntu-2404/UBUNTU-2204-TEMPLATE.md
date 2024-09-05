@@ -2,13 +2,13 @@
 
 ## Introduction
 
-Ubuntu 24.04 virtual machines need specific configurations before use as Kubernetes-ready nodes.  This Ansible playbook installs all configurations and dependencies required for any Ubuntu 24.04 VM to be Kubernetes-ready.  However, Ansible has its own VM configurations and requirements to access newly created VMs.  The Ansible requirements need to be hard coded into the template.  The guide below provides step-by-step instructions for creating a VMware vSphere template using vCenter.  This template, paired with the playbook, will create a Kubernetes-ready node/VM on Ubuntu 24.04.
+Ubuntu 24.04 virtual machines need specific configurations before use as Kubernetes-ready nodes.  This Ansible playbook installs all configurations and dependencies required for any Ubuntu 24.04 VM to be Kubernetes-ready.  However, Ansible has its own VM configurations and requirements to access newly created VMs.  The Ansible requirements need to be hard coded into the template.  This guide provides step-by-step instructions on how to create a VMware vSphere template using vCenter.  This template, paired with the playbook, will create a Kubernetes-ready node/VM on Ubuntu 24.04.
 
 IMPORTANT NOTICE ---> The VMs created by this template & playbook lack some security measures.  For production use, the following items need to be implemented and/or considered after the VMs are created:
 
   -> *Enable and configure firewall (e.g. enable UFW, control-plane ports, worker node ports, etc)*
 
-  -> *Reduce attack surface by removing unused user accounts (e.g. Cloud User, Ubuntu, etc)*
+  -> *Reduce attack surface by removing unused user accounts (e.g. Cloud-User, Ubuntu, etc)*
   
   -> *Change VM's default password*
   
@@ -40,13 +40,13 @@ vCenter ---> "Inventory" ---> "New Virtual Machine" ---> "Deploy from template"
 ```
 ### Step 4: Configure VMs
 ```bash
-Right-Click ---> "Edit Settings"
+Right-Click VM ---> "Edit Settings"
   -> "Virtual Hardware"
         --> Add desired VM specs (e.g. cpu, memory, disk, thin provisioning, etc.)
 
   -> Advanced Parameters 
     --> Add Parameters (Add parameters below for persistent volumes and/or copy-paste VMRC functionality)
-         >"disk.EnabledUUID = TRUE" ---> #required for Kubernetes CSIs/Persistent Volumes
+         >"disk.EnableUUID = TRUE" ---> #required for Kubernetes CSIs/Persistent Volumes
          >"isolation.tools.copy.disable = FALSE" ---> #required for copy/paste functionality for VMRC
          >"isolation.tools.paste.disable = FALSE" ---> #""
          >"isolation.tools.setGUIOptions.enable = TRUE" ---> #""
@@ -63,7 +63,7 @@ Select VM ---> "Summary" ---> "Launch Remote Console"
   -> Password: #Password Previously Entered for Default User
   -> Prompted to change password ---> Change password to desired password.  #To change back to original ---> sudo passwd ubuntu
 ```
-### Step 2: Create `root` Password (used later for `Kubeadm init`)
+### Step 2: Create `root` Password (`root` login used later for `Kubeadm init`)
 ```bash
 sudo passwd root #Enter desired password for root user
 ```
@@ -72,9 +72,9 @@ sudo passwd root #Enter desired password for root user
 sudo vi /etc/cloud/cloud.cfg
   -> disable_root: false
 
-  -> default_user: lock_passwd: False #enables default user (ubuntu) to ssh via password
+  -> default_user: lock_passwd: False #Enables default user (ubuntu) to ssh via password
 
-Disable password change at first log in
+Disable password change at first log in #Creates custom configuration for Cloud-init
   -> echo -e "#cloud-config\nchpasswd:\n  expire: False" | sudo tee /etc/cloud/cloud.cfg.d/99-custom-config.cfg
 ```
 ### Step 4: Configure SSH Server
@@ -101,7 +101,7 @@ sudo visudo
 sudo reboot
 ```
 ##  Prepare VM to Become VMware Template
-Clean the VM and reset the OS with `cloud-init`.  These steps will ensure unique machines are created from template.
+Clean the VM and, reset the OS with `cloud-init clean`.
 
 ### Step 1: Clean Logs
 ```bash
@@ -158,9 +158,11 @@ shutdown -h now
 ```
 ## Convert Ubuntu 24.04 VM to vCenter Template
 
-### Step 1: Remove Virtual Hardware
+### Step 1: Remove Virtual Hardware & Ensure VM Version Compatibility
 ```bash
 Select VM ---> "Edit Settings" ---> "CD/DVD drive 1" ---> "Remove device" #if applicable
+
+Select VM ---> Right-click ---> "Compatibility" ---> "Upgrade VM Compatibility..." ---> Set to at least "ESXI 7.0 or later" #Versions below may work but, have not been tested.  Note: If you plan to use VMware CSI/CPI for persistent volumes, VM version must be at least version 15 (ESXI 7.0 or later = VM version 17). 
 ```
 ### Step 2: Convert VM to Template
 ```bash
@@ -168,4 +170,4 @@ right-click vm ---> "Template" ---> "Convert to Template" ---> "YES"
 ```
 
 ## Conclusion
-After following the steps above, you should have a working vSphere template to use with the paired playbook.  You can use this template by placing its `vcenter name` in `vars/main.yml` file.  Check `PLAYBOOK_GUIDE.md' for more on how to configure and use the playbook.
+After following the steps above, you should have a working vSphere template to use with the paired playbook.  You can use this template by placing the template's "vcenter name" in `main.yml` file.  Then in the playbook, make sure `tasks.vmware_guest.template` points to the desired template in `main.yml`. Check this repository's `README.md' variables section for more information.

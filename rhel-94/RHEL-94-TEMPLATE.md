@@ -2,13 +2,13 @@
 
 ## Introduction
 
-RHEL 9.4 virtual machines need specific configurations before use as Kubernetes-ready nodes.  This repository's Ansible playbook installs all configurations and dependencies required for any RHEL 9.4 VM to be Kubernetes-ready.  However, Ansible has its own VM configurations and requirements needed to access newly created VMs.  These Ansible requirements need to be hard coded into the template.  The guide below provides step-by-step instructions for creating a VMware vSphere template using vCenter.  This template, along with the playbook, will create a Kubernetes-ready node/VM on RHEL 9.4.
+RHEL 9.4 virtual machines need specific configurations before use as Kubernetes-ready nodes.  This repository's Ansible playbook installs all configurations and dependencies required for any RHEL 9.4 VM to be Kubernetes-ready.  However, Ansible has its own VM configurations and requirements needed to access newly created VMs.  These Ansible requirements need to be hard coded into the template.  This guide provides step-by-step instructions on how to create a VMware vSphere template using vCenter.  This template, along with the playbook, will create a Kubernetes-ready node/VM on RHEL 9.4.
 
 IMPORTANT NOTICE ---> The VMs created by this template & playbook lack some security measures.  For production use, the following items need to be implemented and/or considered after the VMs are created:
   
   -> *Enable and configure firewall (e.g. enable firewalld, control-plane ports, worker node ports, etc)*
 
-  -> *Reduce attack surface by removing unused user accounts (e.g. Cloud User, etc)*
+  -> *Reduce attack surface by removing unused user accounts (e.g. Cloud-User, etc)*
   
   -> *Change VM's default password*
   
@@ -43,15 +43,15 @@ vCenter ---> "Inventory" ---> "New Virtual Machine" ---> "Create a new virtual m
   
   -> "Advanced Parameters" 
     --> "Add Parameters" (Add parameters below for persistent volumes and/or copy-paste VMRC functionality)
-         >"disk.EnabledUUID = TRUE" ---> #required for Kubernetes CSIs/Persistent Volumes
-         >"isolation.tools.copy.disable = FALSE" ---> #required for copy/paste functionality for VMRC
+         >"disk.EnableUUID = TRUE" ---> #Required for Kubernetes CSIs/Persistent Volumes
+         >"isolation.tools.copy.disable = FALSE" ---> #Required for copy/paste functionality for VMRC
          >"isolation.tools.paste.disable = FALSE" ---> #""
          >"isolation.tools.setGUIOptions.enable = TRUE" ---> #""
 ```
 
 ### Step 4: Power on VM and Install RHEL 9.4
 ```bash
-Select VM in inventory list and power on
+Select VM in inventory list and power-on
 
 Launch Remote Console/VMRC
   -> Select "Install Red Hat Enterprise Linux"
@@ -84,7 +84,7 @@ Select VM ---> "Summary" ---> "Lauch Remote Console" / / OR SSH with password au
   -> Username: root / / or other administrator account
   -> Password: #Password previously entered for root or user, during installation process
 ```
-### Step 3: Install and Configure Cloud-Init
+### Step 2: Install and Configure Cloud-Init
 ```bash
 sudo yum install cloud-init -y
 
@@ -97,12 +97,12 @@ sudo vi /etc/cloud/cloud.cfg
 
   -> disable_vmware_customization: false
 
-  -> Default_user #add new user created during installation
+  -> Default_user #Add new user that was created during installation
     --> name: myuser
-    --> lock_passwd: True ---> default_user: lock_passwd: False #enables default user to ssh via password
+    --> lock_passwd: True ---> default_user: lock_passwd: False #Enables default user to ssh via password
     --> gecos: #Fullname of user
 
-Prevent password change at first log in
+Disable password change at first log in #Creates custom configuration for Cloud-init
   -> echo -e "#cloud-config\nchpasswd:\n  expire: False" | sudo tee /etc/cloud/cloud.cfg.d/99-custom-config.cfg
 ```
 ### Step 4: Configure SSH Server
@@ -197,4 +197,4 @@ right-click vm ---> "Template" ---> "Convert to Template" ---> "YES"
 ```
 
 ## Conclusion
-After following the steps above, you should have a working vSphere template to use with the paired playbook.  You can use this template by placing its `vcenter name` in `vars/main.yml` file.  Check `PLAYBOOK_GUIDE.md' for more on how to configure and use the playbook.
+After following the steps above, you should have a working vSphere template to use with the paired playbook.  You can use this template by placing the template's "vcenter name" in `main.yml` file.  Then in the playbook, make sure `tasks.vmware_guest.template` points to the desired template in `main.yml`. Check this repository's `README.md' variables section for more information.
