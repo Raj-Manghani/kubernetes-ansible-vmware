@@ -11,26 +11,27 @@
   hosts: localhost
   gather_facts: no
   vars_files:
-    - <example /root/playbooks/vars/main.yml>    # Enter path to `main.yml` where vSphere Variables are located
+    - /root/playbooks/vars/main.yml              # Enter path to `main.yml` where vSphere Variables are located
   vars:
     ansible_ssh_pass: "{{ vm_password }}"
     ansible_python_interpreter: <example /usr/bin/python3> # Enter path of python3 interpreter
     vm_list:
-      - { name: <desired-hostname>, item_ip: <desired_ip_address> } # Insert/remove VMs as desired
-      - { name: kubernetes2, item_ip: 10.11.0.36 }
-      - { name: kubernetes3, item_ip: 10.11.0.37 }
+      - { name: kubernetes-cp-1, item_ip: 10.11.0.35, ram: 8192, disk: 140, cpu: 2}  # Insert/remove VMs as desired
+      - { name: kubernetes-cp-2, item_ip: 10.11.0.36, ram: 4096, disk: 140, cpu: 2 }
+      - { name: kubernetes-cp-3, item_ip: 10.11.0.37, ram: 4096, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-1, item_ip: 10.11.0.38, ram: 16384, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-2, item_ip: 10.11.0.39, ram: 16384, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-3, item_ip: 10.11.0.40, ram: 16384, disk: 140, cpu: 2 }
     dns_server_list:
       - 10.11.0.1
-      - 8.8.8.8
-      - 1.1.1.1
     default_gateway: "<Enter gateway for VMs>"
     netmask: "<enter netmask for VMs>"
-    search_domain_name: "<mydomain.com>"         # Enter Search Domain or ""
-    user: "<root user recommended>"              # Enter User or root
-    vm_password: "<Password defined in VM>"      # Enter password created in vSphere Customize Template
-    users_to_add_key: [<user_ssh_access>]        # Add users accounts that receive ssh public key (comma seperated)
-    public_key_path: "</path/key or key value>"  # Enter public key (Required)
-    root_key_path: </path/key or key value >     # Enter seperate key for root.  Otherwise root gets public_key_path when "add_root_ssh_key: true"
+    search_domain_name: "<mydomain.com>"    # Enter Search Domain or ""
+    user: "<root user recommended>"                                 # Enter User or root
+    vm_password: "<Password_defined_in_VM>"                        # Enter password created in vSphere Customize Template
+    users_to_add_key: [<users_ssh_access>]                   # Add users accounts that receive ssh public key (comma seperated)
+    public_key_path: "</path/key or key value>"      # Enter public key (Required)
+    root_key_path: "</path/key or key value>"   # Enter seperate key for root.  Otherwise root gets public_key_path when "add_root_ssh_key: true"
     add_root_ssh_key: true                       # Boolean value (true/false).  Root user gets ssh key when 'true'
     kubernetes_version: "v1.31"                  # Desired Kubernetes version in format: "v1.31"
     pause_image_version: "3.10"                  # Pause Image Version should coorelate to with Kubernetes
@@ -47,7 +48,7 @@
         datacenter: "{{ datacenter_name }}"
         cluster: "{{ cluster_name }}"
         folder: "{{ folder_name }}"
-        template: "{{ template_name_ubuntu_2404_1 }}"  # Edit template number to desired version in vars/main.yml (e.g. _ubuntu-2404-1, _ubuntu-2404-2, etc).   
+        template: "{{ template_name_ubuntu_2204_1 }}"  # Edit template number to desired version in vars/main.yml (e.g. _ubuntu-2404-1, _ubuntu-2404-2, etc).   
         name: "{{ item.name }}"
         state: poweredon
         wait_for_ip_address: yes
