@@ -11,27 +11,27 @@
   hosts: localhost
   gather_facts: no
   vars_files:
-    - /root/playbooks/vars/main.yml              # Enter path to `main.yml` where vSphere Variables are located
+    - /root/playbooks/vars/main.yml
   vars:
     ansible_ssh_pass: "{{ vm_password }}"
-    ansible_python_interpreter: <example /usr/bin/python3> # Enter path of python3 interpreter
+    ansible_python_interpreter: /usr/bin/python3
     vm_list:
-      - { name: kubernetes-cp-1, item_ip: 10.11.0.35, ram: 8192, disk: 140, cpu: 2}  # Insert/remove VMs as desired
+      - { name: kubernetes-cp-1, item_ip: 10.11.0.35, ram: 8192, disk: 140, cpu: 2}
       - { name: kubernetes-cp-2, item_ip: 10.11.0.36, ram: 4096, disk: 140, cpu: 2 }
       - { name: kubernetes-cp-3, item_ip: 10.11.0.37, ram: 4096, disk: 140, cpu: 2 }
       - { name: kubernetes-wk-1, item_ip: 10.11.0.38, ram: 16384, disk: 140, cpu: 2 }
       - { name: kubernetes-wk-2, item_ip: 10.11.0.39, ram: 16384, disk: 140, cpu: 2 }
       - { name: kubernetes-wk-3, item_ip: 10.11.0.40, ram: 16384, disk: 140, cpu: 2 }
-    dns_server_list:
+    ddns_server_list:
       - 10.11.0.1
     default_gateway: "<Enter gateway for VMs>"
     netmask: "<enter netmask for VMs>"
-    search_domain_name: "<mydomain.com>"    # Enter Search Domain or ""
-    user: "<root user recommended>"                                 # Enter User or root
-    vm_password: "<Password_defined_in_VM>"                        # Enter password created in vSphere Customize Template
-    users_to_add_key: [<users_ssh_access>]                   # Add users accounts that receive ssh public key (comma seperated)
-    public_key_path: "</path/key or key value>"      # Enter public key (Required)
-    root_key_path: "</path/key or key value>"   # Enter seperate key for root.  Otherwise root gets public_key_path when "add_root_ssh_key: true"
+    search_domain_name: "<mydomain.com>"         # Enter Search Domain or ""
+    user: "<root user recommended>"              # Enter User or root
+    vm_password: "<Password_defined_in_VM>"      # Enter password created in vSphere Customize Template
+    users_to_add_key: [<users_ssh_access>]       # Add users accounts that receive ssh public key (comma seperated)
+    public_key_path: "</path/key or key value>"  # Enter public key (Required)
+    root_key_path: "</path/key or key value>"    # Enter seperate key for root.  Otherwise root gets public_key_path when "add_root_ssh_key: true"
     add_root_ssh_key: true                       # Boolean value (true/false).  Root user gets ssh key when 'true'
     kubernetes_version: "v1.31"                  # Desired Kubernetes version in format: "v1.31"
     pause_image_version: "3.10"                  # Pause Image Version should coorelate to with Kubernetes
@@ -48,7 +48,7 @@
         datacenter: "{{ datacenter_name }}"
         cluster: "{{ cluster_name }}"
         folder: "{{ folder_name }}"
-        template: "{{ template_name_ubuntu_2204_1 }}"  # Edit template number to desired version in vars/main.yml (e.g. _ubuntu-2404-1, _ubuntu-2404-2, etc).   
+        template: "{{ template_name_ubuntu_2404_1 }}"  # Edit template number to desired version in vars/main.yml (e.g. _ubuntu-2404-1, _ubuntu-2404-2, etc).   
         name: "{{ item.name }}"
         state: poweredon
         wait_for_ip_address: yes
@@ -61,6 +61,13 @@
           ip: '{{ item.item_ip }}'
           netmask: '{{ netmask }}'
           gateway: '{{ default_gateway }}'
+        hardware:
+          memory_mb: '{{ item.ram }}'
+          num_cpus: '{{ item.cpu }}'
+        disk:
+          - size_gb: '{{ item.disk }}'
+            type: thin
+            datastore: "{{ datastore_name }}"
       loop: "{{ vm_list }}"
       async: 450
       poll: 0
@@ -78,6 +85,24 @@
       delegate_to: localhost
       ignore_errors: yes
 
+    - name: Generate SSH host keys and start SSH service
+      community.vmware.vmware_vm_shell:
+        hostname: "{{ vcenter_ip }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: no
+        datacenter: "{{ datacenter_name }}"
+        cluster: "{{ cluster_name }}"
+        folder: "{{ folder_name }}"
+        vm_id: "{{ item.name }}"
+        vm_username: "{{ user }}"
+        vm_password: "{{ vm_password }}"
+        vm_shell: /bin/bash
+        vm_shell_args: |
+          -c "ssh-keygen -A && systemctl restart ssh"
+      loop: "{{ vm_list }}"
+      register: command_result
+
     - name: Add ssh keys to users and root
       block:
         - name: Remove old host key
@@ -90,10 +115,29 @@
         - name: Add host to known_hosts
           shell: |
             for i in {1..5}; do
-              ssh-keyscan -t rsa {{ item.item_ip }} >> /root/.ssh/known_hosts && break || sleep 15
+              ssh-keyscan -t rsa {{ item.item_ip }} >> /root/.ssh/known_hosts && break || sleep 1
             done
           loop: "{{ vm_list }}"
           delegate_to: localhost
+
+        - name: Ensure SSH service is running
+          systemd:
+            name: ssh
+            state: started
+            enabled: yes
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+          vars:
+            ansible_user: "{{ user }}"
+            ansible_password: "{{ vm_password }}"
+
+        - name: Generate SSH host keys
+          command: ssh-keygen -A
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+          vars:
+            ansible_user: "{{ user }}"
+            ansible_password: "{{ vm_password }}"
 
         - name: Add SSH key to authorized_keys for specified users
           authorized_key:
@@ -124,6 +168,15 @@
           vars:
             ansible_user: "{{ user }}"
             ansible_password: "{{ vm_password }}"
+
+    - name: Reboot VMs
+      reboot:
+        reboot_timeout: 600
+      loop: "{{ vm_list }}"
+      delegate_to: "{{ item.item_ip }}"
+      vars:
+        ansible_user: "{{ user }}"
+        ansible_password: "{{ vm_password }}"
 
     - name: Configure NetPlan with DNS and Search Domain
       block:
@@ -243,22 +296,15 @@
 
     - name: Configure VMs for k8s and install k8s packages
       block:
-        - name: Run dist-upgrade
+        - name: Ensure OS is up-to-date
           become: yes
           apt:
+            update_cache: yes
             upgrade: dist
           retries: 3
           delay: 5
           register: result
           until: result is succeeded
-          with_items: "{{ vm_list }}"
-          delegate_to: "{{ item.item_ip }}"
-
-        - name: Ensure the system is up to date
-          become: yes
-          apt:
-            update_cache: yes
-            upgrade: dist
           with_items: "{{ vm_list }}"
           delegate_to: "{{ item.item_ip }}"
 
