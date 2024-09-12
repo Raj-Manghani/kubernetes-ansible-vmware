@@ -41,6 +41,8 @@ Some of these configurations are not suitable for productions environments and s
 
 + Set SELinux to `permissive` mode. (Kubernetes Required)
 
++ On applicable distros will set `%sudo  ALL=(ALL) NOPASSWD:ALL`
+
 *PLEASE NOTE: Since Linux distros vary, VM template configuration instructions are located in a readme file in the specific distro folders (e.g.`<LINUX DISTRO>-<distro version>-TEMPLATE.md`).*
 
 ## Ansible Host Requirements

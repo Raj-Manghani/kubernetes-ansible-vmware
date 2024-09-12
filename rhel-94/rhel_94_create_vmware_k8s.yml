@@ -28,9 +28,9 @@
     search_domain_name: "<mydomain.com>"         # Enter Search Domain or ""
     user: "<root user recommended>"              # Enter User or root
     vm_password: "<Password_defined_in_VM>"      # Enter password created in vSphere Customize Template
-    users_to_add_key: [<users_ssh_access]        # Add users accounts that receive ssh public key (comma seperated)
+    users_to_add_key: [<users_ssh_access>]        # Add users accounts that receive ssh public key (comma seperated)
     public_key_path: "</path/key or key value>"  # Enter public key (Required)
-    root_key_path: </path/key or key value >     # Enter seperate key for root.  Otherwise root gets public_key_path when "add_root_ssh_key: true"
+    root_key_path: "</path/key or key value>"     # Enter seperate key for root.  Otherwise root gets public_key_path when "add_root_ssh_key: true"
     add_root_ssh_key: true                       # Boolean value (true/false).  Root user gets ssh key when 'true'
     kubernetes_version: "v1.31"                  # Desired Kubernetes version in format: "v1.31"                  
     pause_image_version: "3.10"                  # Pause Image Version should coorelate to with Kubernetes
