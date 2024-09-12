@@ -150,7 +150,7 @@ vSphere Variables in `main.yml` include:
 vcenter_ip: "<IP Address or FQDN>"
 vcenter_username: "<administrator or other @vsphere.local>"
 vcenter_password: "<username's password>"
-datacenter_name: "<Datacenter-name>"
+datacenter_name: "<Datacenter-Name>"
 cluster_name: "<vSphere-Cluster-Name>"
 datastore_name: "<Datastore-Name>" 
 folder_name: "<desired-vSphere-folder-for-provisioned-VMs>"
@@ -161,6 +161,7 @@ template_name_rhel-94-3: "<''>"
 template_name_ubuntu-2404-1: "<name-of-vSphere-Ubuntu-template>"
 template_name_ubuntu-2404-2: "<''>"
 template_name_ubuntu-2404-3: "<''>"
+...
 ```
 
 
