@@ -1,0 +1,617 @@
+# **Important** 
+# -> Ensure value in `tasks.vmware_guest.template` coorelate to the vSphere template defined in `main.yml`
+# -> Enter values in `vars:` section below before running this playbook.
+# -> Enter vSphere values in `main.yaml`.  
+# -> Ensure path to `main.yml` is set below in `vars_files:`
+# -> Warning: All items in {{ curly brackets }} are directly connected to variables.  Changes to these items could break the playbook. 
+# -> Add inputs where you see angled brackets by replacing everything including the brackets. (i.e. '<IP address>' = '10.11.0.11')
+# -> Make sure Ansible host meets all requirements to run this playbook.  It is recommended to use a python virtual environment  See repository README.md for more information.
+
+- name: Create VMs from template with guest customization
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - /root/playbooks/vars/main.yml
+  vars:
+    ansible_ssh_pass: "{{ vm_password }}"
+    ansible_python_interpreter: /usr/bin/python3
+    vm_list:
+      - { name: kubernetes-cp-1, item_ip: 10.11.0.35, ram: 8192, disk: 140, cpu: 2}
+      - { name: kubernetes-cp-2, item_ip: 10.11.0.36, ram: 4096, disk: 140, cpu: 2 }
+      - { name: kubernetes-cp-3, item_ip: 10.11.0.37, ram: 4096, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-1, item_ip: 10.11.0.38, ram: 16384, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-2, item_ip: 10.11.0.39, ram: 16384, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-3, item_ip: 10.11.0.40, ram: 16384, disk: 140, cpu: 2 }
+    ddns_server_list:
+      - 10.11.0.1
+    default_gateway: "<Enter gateway for VMs>"
+    netmask: "<enter netmask for VMs>"
+    search_domain_name: "<mydomain.com>"         # Enter Search Domain or ""
+    user: "<root user recommended>"              # Enter User or root
+    vm_password: "<Password_defined_in_VM>"      # Enter password created in vSphere Customize Template
+    users_to_add_key: [<users_ssh_access>]       # Add users accounts that receive ssh public key (comma seperated)
+    public_key_path: "</path/key or key value>"  # Enter public key (Required)
+    root_key_path: "</path/key or key value>"    # Enter seperate key for root.  Otherwise root gets public_key_path when "add_root_ssh_key: true"
+    add_root_ssh_key: true                       # Boolean value (true/false).  Root user gets ssh key when 'true'
+    kubernetes_version: "v1.31"                  # Desired Kubernetes version in format: "v1.31"
+    pause_image_version: "3.10"                  # Pause Image Version should coorelate to with Kubernetes
+    use_calico_cni: true                         # Installs Calico CNI dependencies if true.
+    calicoctl_version: "v3.28.1"                 # Used to set Calico CNI version.  Format: "v3.28.1"
+    use_longhorn_pv: true                        # Installs Longhorn dependencies if true.
+  tasks:
+    - name: Clone VMs from template
+      vmware_guest:
+        hostname: "{{ vcenter_ip }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: no
+        datacenter: "{{ datacenter_name }}"
+        cluster: "{{ cluster_name }}"
+        folder: "{{ folder_name }}"
+        template: "{{ template_name_ubuntu_2204_2 }}"  # Edit template number to desired version in vars/main.yml (e.g. _ubuntu-2204-1, _ubuntu-2204-2, etc).   
+        name: "{{ item.name }}"
+        state: poweredon
+        wait_for_ip_address: yes
+        convert: thin
+        networks:
+        - name: VM Network
+          connected: yes
+          start_connected: yes
+          type: static
+          ip: '{{ item.item_ip }}'
+          netmask: '{{ netmask }}'
+          gateway: '{{ default_gateway }}'
+        hardware:
+          memory_mb: '{{ item.ram }}'
+          num_cpus: '{{ item.cpu }}'
+        disk:
+          - size_gb: '{{ item.disk }}'
+            type: thin
+            datastore: "{{ datastore_name }}"
+      loop: "{{ vm_list }}"
+      async: 450
+      poll: 0
+      register: async_result
+      delegate_to: localhost
+
+    - name: Wait for all VMs to be created (checks if VMs are ready every 10 seconds)
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 100
+      delay: 10
+      loop: "{{ async_result.results }}"
+      delegate_to: localhost
+      ignore_errors: yes
+
+    - name: Generate SSH host keys and start SSH service
+      community.vmware.vmware_vm_shell:
+        hostname: "{{ vcenter_ip }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: no
+        datacenter: "{{ datacenter_name }}"
+        cluster: "{{ cluster_name }}"
+        folder: "{{ folder_name }}"
+        vm_id: "{{ item.name }}"
+        vm_username: "{{ user }}"
+        vm_password: "{{ vm_password }}"
+        vm_shell: /bin/bash
+        vm_shell_args: |
+          -c "ssh-keygen -A && systemctl restart ssh"
+      loop: "{{ vm_list }}"
+      register: command_result
+
+    - name: Add ssh keys to users and root
+      block:
+        - name: Remove old host key
+          shell: ssh-keygen -R {{ item.item_ip }}
+          loop: "{{ vm_list }}"
+          async: 450
+          poll: 0
+          delegate_to: localhost
+
+        - name: Add host to known_hosts
+          shell: |
+            for i in {1..5}; do
+              ssh-keyscan -t rsa {{ item.item_ip }} >> /root/.ssh/known_hosts && break || sleep 1
+            done
+          loop: "{{ vm_list }}"
+          delegate_to: localhost
+
+        - name: Ensure SSH service is running
+          systemd:
+            name: ssh
+            state: started
+            enabled: yes
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+          vars:
+            ansible_user: "{{ user }}"
+            ansible_password: "{{ vm_password }}"
+
+        - name: Generate SSH host keys
+          command: ssh-keygen -A
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+          vars:
+            ansible_user: "{{ user }}"
+            ansible_password: "{{ vm_password }}"
+
+        - name: Add SSH key to authorized_keys for specified users
+          authorized_key:
+            user: "{{ item.1 }}"
+            key: "{{ lookup('file', public_key_path) }}"
+          loop: "{{ vm_list | product(users_to_add_key) | list }}"
+          delegate_to: "{{ item.0.item_ip }}"
+          vars:
+            ansible_user: "{{ user }}"
+            ansible_password: "{{ vm_password }}"
+          retries: 5
+          delay: 10
+          until: result is success
+          register: result
+
+        - name: Set root_key to public_key if not defined
+          set_fact:
+            root_key: "{{ lookup('file', public_key_path) }}"
+          when: root_key_path == "" and add_root_ssh_key
+
+        - name: Add SSH key to root user
+          authorized_key:
+            user: root
+            key: "{{ lookup('file', root_key_path) if root_key_path != '' else root_key }}"
+          when: add_root_ssh_key
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+          vars:
+            ansible_user: "{{ user }}"
+            ansible_password: "{{ vm_password }}"
+
+    - name: Reboot VMs
+      reboot:
+        reboot_timeout: 600
+      loop: "{{ vm_list }}"
+      delegate_to: "{{ item.item_ip }}"
+      vars:
+        ansible_user: "{{ user }}"
+        ansible_password: "{{ vm_password }}"
+
+    - name: Configure NetPlan with DNS and Search Domain
+      block:
+        - name: Ensure /etc/netplan directory exists
+          file:
+            path: /etc/netplan
+            state: directory
+          delegate_to: "{{ item.item_ip }}"
+          with_items: "{{ vm_list }}"
+          become: yes
+
+        - name: Create Netplan configuration file
+          copy:
+            dest: /etc/netplan/99-netcfg-vmware.yaml
+            content: |
+              network:
+                version: 2
+                ethernets:
+                  ens192:
+                    dhcp4: no
+                    addresses:
+                      - "{{ item.item_ip }}/16"
+                    routes:
+                      - to: default
+                        via: "{{ default_gateway }}"
+                    nameservers:
+                      search:
+                        - "{{ search_domain_name }}"
+                      addresses:
+                        {% for address in dns_server_list %}
+                        - {{ address }}
+                        {% endfor %}
+          delegate_to: "{{ item.item_ip }}"
+          with_items: "{{ vm_list }}"
+          become: yes
+
+        - name: Apply Netplan configuration
+          command: netplan apply
+          delegate_to: "{{ item.item_ip }}"
+          with_items: "{{ vm_list }}"
+          become: yes
+
+        - name: Verify DNS configuration
+          command: cat /etc/netplan/99-netcfg-vmware.yaml
+          register: netplan_config
+          delegate_to: "{{ item.item_ip }}"
+          with_items: "{{ vm_list }}"
+          become: yes
+
+        - name: Add VM name to /etc/hosts
+          become: yes
+          lineinfile:
+            path: /etc/hosts
+            line: "127.0.0.1   {{ item.name }}"
+            create: yes
+          loop: "{{ vm_list }}"
+          async: 450
+          poll: 0
+          delegate_to: "{{ item.item_ip }}"
+          vars:
+            ansible_ssh_pass: "{{ vm_password }}"
+
+    - name: Configure SElinux to permissive & disable swap
+      block:
+        - name: Set SELinux to permissive mode
+          become: yes
+          command: setenforce 0
+          loop: "{{ vm_list }}"
+          async: 450
+          poll: 0
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Update SELinux configuration to permissive
+          become: yes
+          lineinfile:
+            path: /etc/selinux/config
+            regexp: '^SELINUX='
+            line: 'SELINUX=permissive'
+          loop: "{{ vm_list }}"
+          async: 450
+          poll: 0
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Turn off swap immediately
+          become: yes
+          command: swapoff -a
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Comment out swap entries in /etc/fstab
+          become: yes
+          lineinfile:
+            path: /etc/fstab
+            regexp: '^(.*swap.*)$'
+            line: '# \1'
+            backrefs: yes
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Adjust swappiness
+          become: yes
+          sysctl:
+            name: vm.swappiness
+            value: 0
+            state: present
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Make swappiness change permanent
+          become: yes
+          lineinfile:
+            path: /etc/sysctl.conf
+            regexp: '^vm.swappiness='
+            line: 'vm.swappiness=0'
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+    - name: Configure VMs for k8s and install k8s packages
+      block:
+        - name: Ensure OS is up-to-date
+          become: yes
+          apt:
+            update_cache: yes
+            upgrade: dist
+          retries: 3
+          delay: 5
+          register: result
+          until: result is succeeded
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Add overlay and br_netfilter to modules-load.d for persistence across reboots
+          become: yes
+          ansible.builtin.copy:
+            dest: /etc/modules-load.d/k8s.conf
+            content: |
+              overlay
+              br_netfilter
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Start overlay and br_netfilter for current session
+          become: yes
+          ansible.builtin.shell: |
+            modprobe overlay
+            modprobe br_netfilter
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Add sysctl params required by setup, params persist across reboots
+          become: yes
+          ansible.builtin.copy:
+            dest: /etc/sysctl.d/k8s.conf
+            content: |
+              net.bridge.bridge-nf-call-iptables  = 1
+              net.bridge.bridge-nf-call-ip6tables = 1
+              net.ipv4.ip_forward                 = 1
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Apply sysctl params without reboot
+          become: yes
+          ansible.builtin.shell: sysctl --system
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Add Docker's official GPG key
+          become: yes
+          apt:
+            name: 
+              - ca-certificates
+              - curl
+            state: present
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Create directory for Docker keyrings
+          become: yes
+          file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: '0755'
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Download Docker's GPG key
+          become: yes
+          get_url:
+            url: https://download.docker.com/linux/ubuntu/gpg
+            dest: /etc/apt/keyrings/docker.asc
+            mode: '0644'
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Add Docker repository to Apt sources
+          become: yes
+          ansible.builtin.shell: |
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Update Apt package index
+          become: yes
+          apt:
+            update_cache: yes
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Install containerd.io
+          become: yes
+          apt:
+            name: containerd.io
+            state: present
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Enable and start containerd service
+          become: yes
+          systemd:
+            name: containerd
+            enabled: yes
+            state: started
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Generate default containerd configuration
+          become: yes
+          ansible.builtin.shell: containerd config default > /etc/containerd/config.toml
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Set SystemdCgroup to true in containerd config
+          become: yes
+          ansible.builtin.lineinfile:
+            path: /etc/containerd/config.toml
+            regexp: '^(\s*)SystemdCgroup\s*=\s*false\s*$'
+            line: '\1SystemdCgroup = true'
+            backrefs: yes
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Set sandbox_image to registry.k8s.io/pause:x.xx in containerd config
+          become: yes
+          ansible.builtin.lineinfile:
+            path: /etc/containerd/config.toml
+            regexp: '^(\s*)sandbox_image\s*=\s*".*"\s*$'
+            line: '\1sandbox_image = "registry.k8s.io/pause:{{ pause_image_version }}"'
+            backrefs: yes
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Reload systemd manager configuration
+          become: yes
+          ansible.builtin.shell: systemctl daemon-reload
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Restart containerd service
+          become: yes
+          systemd:
+            name: containerd
+            state: restarted
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Update apt package index
+          become: yes
+          ansible.builtin.apt:
+            update_cache: yes
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Install required packages
+          become: yes
+          ansible.builtin.apt:
+            name:
+              - apt-transport-https
+              - ca-certificates
+              - curl
+              - gpg
+            state: present
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Create directory for apt keyrings if it does not exist
+          become: yes
+          ansible.builtin.file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: '0755'
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Download and add Kubernetes GPG key
+          become: yes
+          ansible.builtin.apt_key:
+            url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/Release.key"
+            state: present
+            keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Add Kubernetes apt repository
+          become: yes
+          ansible.builtin.apt_repository:
+            repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/ /"
+            state: present
+            filename: 'kubernetes'
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Update apt package index again
+          become: yes
+          apt:
+            update_cache: yes
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Install kubeadm, kubectl, and kubelet
+          become: yes
+          apt:
+            name:
+              - kubelet
+              - kubeadm
+              - kubectl
+            state: present
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Hold kubeadm, kubectl, and kubelet packages
+          become: yes
+          ansible.builtin.shell: |
+            apt-mark hold kubelet kubeadm kubectl
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Enable and start kubelet service
+          become: yes
+          systemd:
+            name: kubelet
+            enabled: yes
+            state: started
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+    - name: Install Calicoctl
+      block:
+        - name: Ensure /usr/local/bin directory exists
+          file:
+            path: /usr/local/bin
+            state: directory
+          loop: "{{ vm_list }}"
+          async: 450
+          poll: 0
+          delegate_to: "{{ item.item_ip }}"
+        
+
+        - name: Download calicoctl binary
+          become: yes
+          get_url:
+            url: https://github.com/projectcalico/calico/releases/download/{{ calicoctl_version }}/calicoctl-linux-amd64
+            dest: /usr/local/bin/calicoctl
+            mode: '0755'
+          when: use_calico_cni
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+        
+
+        - name: Set calicoctl as executable
+          become: yes
+          file:
+            path: /usr/local/bin/calicoctl
+            mode: '0755'
+          when: use_calico_cni
+          loop: "{{ vm_list }}"
+          async: 450
+          poll: 0
+          delegate_to: "{{ item.item_ip }}"
+
+    - name: Configure VMs for Longhorn
+      block:
+        - name: Install nfs-common
+          become: yes
+          apt:
+            name: nfs-common
+            state: present
+          when: use_longhorn_pv
+          with_items: "{{ vm_list }}"
+          async: 450
+          poll: 0
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Add parameters to multipath.conf
+          become: yes
+          blockinfile:
+            path: /etc/multipath.conf
+            block: |
+              # Longhorn configuration
+              defaults {
+                  user_friendly_names yes
+              }
+              blacklist {
+                  devnode "^sd[a-z0-9]+"
+              }
+          when: use_longhorn_pv
+          with_items: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+
+        - name: Install open-iscsi package
+          ansible.builtin.apt:
+            name: open-iscsi
+            state: present
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+        
+        - name: Load iscsi_tcp module
+          ansible.builtin.shell: modprobe iscsi_tcp
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+        
+        - name: Ensure iscsi_tcp module is loaded at boot
+          ansible.builtin.lineinfile:
+            path: /etc/modules-load.d/iscsi_tcp.conf
+            create: yes
+            line: iscsi_tcp
+          loop: "{{ vm_list }}"
+          delegate_to: "{{ item.item_ip }}"
+      tags: install_longhorn_dependencies
+
+
+    - name: Reboot VMs
+      reboot:
+        reboot_timeout: 600
+      loop: "{{ vm_list }}"
+      delegate_to: "{{ item.item_ip }}"
+      vars:
+        ansible_user: "{{ user }}"
+        ansible_password: "{{ vm_password }}"
