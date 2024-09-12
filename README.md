@@ -101,9 +101,12 @@ vars:
     ansible_ssh_pass: "{{ vm_password }}"
     ansible_python_interpreter: /usr/bin/python3
     vm_list:
-      - { name: kubernetes1, item_ip: 10.11.0.32 }
-      - { name: kubernetes2, item_ip: 10.11.0.33 }
-      - { name: kubernetes3, item_ip: 10.11.0.34 }
+      - { name: kubernetes-cp-1, item_ip: 10.11.0.35, ram: 8192, disk: 140, cpu: 2}
+      - { name: kubernetes-cp-2, item_ip: 10.11.0.36, ram: 4096, disk: 140, cpu: 2 }
+      - { name: kubernetes-cp-3, item_ip: 10.11.0.37, ram: 4096, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-1, item_ip: 10.11.0.38, ram: 16384, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-2, item_ip: 10.11.0.39, ram: 16384, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-3, item_ip: 10.11.0.40, ram: 16384, disk: 140, cpu: 2 }
     dns_server_list:
       - 192.168.50.246
       - 192.168.50.1
@@ -122,13 +125,16 @@ vars:
     calicoctl_version: "v3.28.1"   # Used to set Calico CNI version.  Format: "v3.28.1"
     use_longhorn_pv: true          # Installs Longhorn dependencies if true.
 ```
-The `vm_list` variable determines the desired quantity of VMs, their hostnames, and static IP addresses.  Add/delete VM(s) to the list by inserting/removing an entry as seen in the example below.
+The `vm_list` variable determines the desired quantity of VMs, their hostnames, static IP address, desired RAM (GBs), desired disk storage (GBs), and desired CPU(s).  Add/delete VM(s) to the list by inserting/removing an entry as seen in the example below.
 ```bash
   vm_list:
-      - { name: kubernetes1, item_ip: 10.11.0.32 }
-      - { name: kubernetes2, item_ip: 10.11.0.33 }
-      - { name: kubernetes3, item_ip: 10.11.0.34 }
-      - { name: <add-VM-hostname>, item_ip: <desired static IP>}
+      - { name: kubernetes-cp-1, item_ip: 10.11.0.35, ram: 8192, disk: 140, cpu: 2}
+      - { name: kubernetes-cp-2, item_ip: 10.11.0.36, ram: 4096, disk: 140, cpu: 2 }
+      - { name: kubernetes-cp-3, item_ip: 10.11.0.37, ram: 4096, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-1, item_ip: 10.11.0.38, ram: 16384, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-2, item_ip: 10.11.0.39, ram: 16384, disk: 140, cpu: 2 }
+      - { name: kubernetes-wk-3, item_ip: 10.11.0.40, ram: 16384, disk: 140, cpu: 2 }
+      - { name: <add-VM-hostname>, item_ip: <desired static IP>, ram: <desired VM RAM>, disk: <desired VM disk space>, cpu: <desired VM CPUs>}
 ```
 ### vSphere Variables (`main.yml`) 
 
@@ -143,7 +149,8 @@ vcenter_ip: "<IP Address or FQDN>"
 vcenter_username: "<administrator or other @vsphere.local>"
 vcenter_password: "<username's password>"
 datacenter_name: "<Datacenter-name>"
-cluster_name: "<vSphere-Cluster-Name>" 
+cluster_name: "<vSphere-Cluster-Name>"
+datastore_name: "<Datastore-Name>" 
 folder_name: "<desired-vSphere-folder-for-provisioned-VMs>"
 vcenter_hostname: "<IP or FQDN of vCenter>"
 template_name_rhel-94-1: "<name-of-vSphere-RHEL-9.4-template>"
